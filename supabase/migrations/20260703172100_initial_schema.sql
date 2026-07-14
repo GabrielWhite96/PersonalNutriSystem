@@ -141,3 +141,48 @@ create trigger set_user_food_preferences_updated_at
 before update on public.user_food_preferences
 for each row
 execute function public.set_updated_at();
+
+alter table public.profiles enable row level security;
+alter table public.meals enable row level security;
+alter table public.chat_messages enable row level security;
+alter table public.user_food_preferences enable row level security;
+alter table public.weight_logs enable row level security;
+
+drop policy if exists "profiles_select_own" on public.profiles;
+create policy "profiles_select_own" on public.profiles for select to authenticated using (auth.uid() = id);
+drop policy if exists "profiles_insert_own" on public.profiles;
+create policy "profiles_insert_own" on public.profiles for insert to authenticated with check (auth.uid() = id);
+drop policy if exists "profiles_update_own" on public.profiles;
+create policy "profiles_update_own" on public.profiles for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
+
+drop policy if exists "meals_select_own" on public.meals;
+create policy "meals_select_own" on public.meals for select to authenticated using (auth.uid() = user_id);
+drop policy if exists "meals_insert_own" on public.meals;
+create policy "meals_insert_own" on public.meals for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "meals_update_own" on public.meals;
+create policy "meals_update_own" on public.meals for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "meals_delete_own" on public.meals;
+create policy "meals_delete_own" on public.meals for delete to authenticated using (auth.uid() = user_id);
+
+drop policy if exists "chat_messages_select_own" on public.chat_messages;
+create policy "chat_messages_select_own" on public.chat_messages for select to authenticated using (auth.uid() = user_id);
+drop policy if exists "chat_messages_insert_own" on public.chat_messages;
+create policy "chat_messages_insert_own" on public.chat_messages for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "chat_messages_delete_own" on public.chat_messages;
+create policy "chat_messages_delete_own" on public.chat_messages for delete to authenticated using (auth.uid() = user_id);
+
+drop policy if exists "prefs_select_own" on public.user_food_preferences;
+create policy "prefs_select_own" on public.user_food_preferences for select to authenticated using (auth.uid() = user_id);
+drop policy if exists "prefs_insert_own" on public.user_food_preferences;
+create policy "prefs_insert_own" on public.user_food_preferences for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "prefs_update_own" on public.user_food_preferences;
+create policy "prefs_update_own" on public.user_food_preferences for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "prefs_delete_own" on public.user_food_preferences;
+create policy "prefs_delete_own" on public.user_food_preferences for delete to authenticated using (auth.uid() = user_id);
+
+drop policy if exists "weight_logs_select_own" on public.weight_logs;
+create policy "weight_logs_select_own" on public.weight_logs for select to authenticated using (auth.uid() = user_id);
+drop policy if exists "weight_logs_insert_own" on public.weight_logs;
+create policy "weight_logs_insert_own" on public.weight_logs for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "weight_logs_delete_own" on public.weight_logs;
+create policy "weight_logs_delete_own" on public.weight_logs for delete to authenticated using (auth.uid() = user_id);

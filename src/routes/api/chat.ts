@@ -5,7 +5,7 @@ import {
   messageHasFile,
   sanitizeMessageForStorage,
 } from "@/lib/chat-message-utils";
-import { createOpenAIProvider } from "@/lib/openai.server";
+import { createGeminiProvider } from "@/lib/gemini.server";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -30,11 +30,14 @@ export const Route = createFileRoute("/api/chat")({
         }
         const token = authHeader.slice("Bearer ".length);
 
-        const SUPABASE_URL = process.env.SUPABASE_URL;
-        const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
-        const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-        const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-        if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !OPENAI_API_KEY) {
+        const SUPABASE_URL =
+          process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+        const SUPABASE_PUBLISHABLE_KEY =
+          process.env.SUPABASE_PUBLISHABLE_KEY ||
+          process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+        const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+        if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !GEMINI_API_KEY) {
           return new Response("Server misconfigured", { status: 500 });
         }
 
@@ -86,8 +89,8 @@ export const Route = createFileRoute("/api/chat")({
           });
         }
 
-        const openai = createOpenAIProvider(OPENAI_API_KEY);
-        const model = openai(OPENAI_MODEL);
+        const gemini = createGeminiProvider(GEMINI_API_KEY);
+        const model = gemini(GEMINI_MODEL);
 
         const today = new Date().toISOString();
 
@@ -205,33 +208,62 @@ Nunca invente ingredientes que o usuário não mencionou. Se ele disse "arroz e 
           }),
         };
 
-        const modelMessages = await convertToModelMessages(messages);
-        const result = streamText({
-          model,
-          system: systemPrompt,
-          messages: modelMessages,
-          tools,
-          stopWhen: stepCountIs(5),
-        });
+        try {
+          const modelMessages = await convertToModelMessages(messages);
+          const result = streamText({
+            model,
+            system: systemPrompt,
+            messages: modelMessages,
+            tools,
+            stopWhen: stepCountIs(5),
+          });
 
-        return result.toUIMessageStreamResponse({
-          originalMessages: messages,
-          onFinish: async ({ responseMessage }) => {
-            try {
-              await supabase.from("chat_messages").insert({
-                user_id: userId,
-                role: "assistant",
-                content: sanitizeMessageForStorage(responseMessage) as unknown as Record<string, unknown>,
-              });
-            } catch (e) {
-              console.error("Failed to persist assistant message", e);
-            }
-          },
-        });
+          return result.toUIMessageStreamResponse({
+            originalMessages: messages,
+            onFinish: async ({ responseMessage }) => {
+              try {
+                await supabase.from("chat_messages").insert({
+                  user_id: userId,
+                  role: "assistant",
+                  content: sanitizeMessageForStorage(responseMessage) as unknown as Record<string, unknown>,
+                });
+              } catch (e) {
+                console.error("Failed to persist assistant message", e);
+              }
+            },
+          });
+        } catch (error) {
+          console.error("[chat] Gemini request failed", error);
+          return new Response(formatAIProviderError(error), { status: 502 });
+        }
       },
     },
   },
 });
+
+function formatAIProviderError(error: unknown): string {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+
+  if (/limit:\s*0/i.test(message)) {
+    return "Seu projeto Gemini não tem cota gratuita ativa neste modelo. No .env.local use GEMINI_MODEL=gemini-2.5-flash-lite ou gere uma chave nova em aistudio.google.com/apikey (projeto com Free tier).";
+  }
+  if (/insufficient_quota|exceeded your current quota|RESOURCE_EXHAUSTED|quota/i.test(message)) {
+    return "Cota do Gemini esgotada. Aguarde alguns minutos ou troque GEMINI_MODEL para gemini-2.5-flash-lite.";
+  }
+  if (/API[_ ]?key|invalid.*key|403|PERMISSION_DENIED/i.test(message)) {
+    return "GEMINI_API_KEY inválida. Confira a chave no .env.local e reinicie o servidor.";
+  }
+  if (/rate limit|429/i.test(message)) {
+    return "Limite de requisições do Gemini atingido. Aguarde um pouco e tente de novo.";
+  }
+
+  return message || "Falha ao falar com o Gemini.";
+}
 
 function createStaticAssistantResponse(
   originalMessages: UIMessage[],

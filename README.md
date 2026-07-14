@@ -1,20 +1,20 @@
 # Nutri
 
-Aplicacao web para registro alimentar por conversa, com autenticacao Google, Supabase e estimativas nutricionais via OpenAI.
+Aplicacao web para registro alimentar por conversa, com autenticacao Google, Supabase e estimativas nutricionais via Gemini.
 
 ## Stack
 
 - `React 19`
 - `TanStack Start`
 - `Supabase` para autenticacao e persistencia
-- `OpenAI` para o chat de registro alimentar
+- `Google Gemini` para o chat de registro alimentar
 - `Tailwind CSS 4`
 
 ## Requisitos
 
 - `Node.js 22+`
 - Projeto Supabase configurado
-- Chave da API da OpenAI
+- Chave da API do Gemini (Google AI Studio)
 
 ## Variaveis de ambiente
 
@@ -30,8 +30,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=
 ```env
 SUPABASE_URL=
 SUPABASE_PUBLISHABLE_KEY=
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4o-mini
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.1-flash-lite
 ```
 
 ### Opcional
