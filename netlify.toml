@@ -4,3 +4,5 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # Model IDs are public strings that also appear as code defaults — not secrets.
+  SECRETS_SCAN_OMIT_KEYS = "GEMINI_MODEL"
