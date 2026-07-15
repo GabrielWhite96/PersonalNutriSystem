@@ -8,6 +8,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/auth")({
   beforeLoad: async () => {
     if (typeof window === "undefined") return;
+    // Wait for OAuth exchange when landing on /auth?code=...
     const { data } = await supabase.auth.getSession();
     if (data.session) throw redirect({ to: "/home" });
   },
@@ -19,10 +20,20 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
+    // Finish OAuth redirect (?code= / #access_token=) before sending the user on.
+    void supabase.auth.getSession().then(({ data }) => {
+      if (active && data.session) navigate({ to: "/home", replace: true });
+    });
+
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) navigate({ to: "/home", replace: true });
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
   }, [navigate]);
 
   async function signInGoogle() {
@@ -31,7 +42,8 @@ function AuthPage() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/home`,
+          // Land back on /auth so the session is established before /home loads.
+          redirectTo: `${window.location.origin}/auth`,
         },
       });
       if (error || !data.url) {

@@ -50,6 +50,7 @@ function HomePage() {
           <MacroRing
             value={totals.kcal}
             goal={profile?.kcal_goal ?? null}
+            softGoal={2000}
             label="kcal"
           />
           <div className="w-full flex-1 space-y-4">
@@ -57,19 +58,22 @@ function HomePage() {
               name="Proteínas"
               value={totals.protein_g}
               goal={profile?.protein_g_goal ?? null}
-              color="var(--color-macro-protein)"
+              softGoal={150}
+              color="var(--macro-protein)"
             />
             <MacroBar
               name="Carboidratos"
               value={totals.carb_g}
               goal={profile?.carb_g_goal ?? null}
-              color="var(--color-macro-carb)"
+              softGoal={250}
+              color="var(--macro-carb)"
             />
             <MacroBar
               name="Gorduras"
               value={totals.fat_g}
               goal={profile?.fat_g_goal ?? null}
-              color="var(--color-macro-fat)"
+              softGoal={70}
+              color="var(--macro-fat)"
             />
           </div>
         </div>

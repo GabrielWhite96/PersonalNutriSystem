@@ -95,7 +95,11 @@ function ChatPage() {
     id: "main",
     messages: initialMessages,
     transport,
-    onError: (e) => toast.error(e.message || "Erro na conversa."),
+    onError: (e) => {
+      const detail = e.message?.trim();
+      toast.error(detail && detail !== "An error occurred." ? detail : "Erro na conversa. Confira a chave Gemini e reinicie o servidor.");
+      console.error("[chat]", e);
+    },
   });
 
   const [input, setInput] = useState("");

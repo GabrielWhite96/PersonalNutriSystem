@@ -23,6 +23,26 @@ const PHOTO_FEATURE_MESSAGE =
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
+      GET: async () => {
+        const hasUrl = Boolean(
+          process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
+        );
+        const hasKey = Boolean(
+          process.env.SUPABASE_PUBLISHABLE_KEY ||
+            process.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        );
+        const hasGemini = Boolean(process.env.GEMINI_API_KEY);
+        const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+        return Response.json({
+          ok: hasUrl && hasKey && hasGemini,
+          env: {
+            SUPABASE_URL: hasUrl,
+            SUPABASE_PUBLISHABLE_KEY: hasKey,
+            GEMINI_API_KEY: hasGemini,
+            GEMINI_MODEL: model,
+          },
+        });
+      },
       POST: async ({ request }) => {
         const authHeader = request.headers.get("authorization");
         if (!authHeader?.startsWith("Bearer ")) {
@@ -65,7 +85,11 @@ export const Route = createFileRoute("/api/chat")({
         if (!Array.isArray(body.messages)) {
           return new Response("Missing messages", { status: 400 });
         }
-        const messages = body.messages as UIMessage[];
+        const messages = (body.messages as UIMessage[]).filter(
+          (message) =>
+            Array.isArray(message.parts) &&
+            message.parts.some((part) => part.type === "text" || part.type === "file" || part.type.startsWith("tool-")),
+        );
         const latestUser = [...messages].reverse().find((m) => m.role === "user");
         const originalMessage =
           getCurrentMealConversationText(messages) ||
@@ -220,7 +244,17 @@ Nunca invente ingredientes que o usuário não mencionou. Se ele disse "arroz e 
 
           return result.toUIMessageStreamResponse({
             originalMessages: messages,
+            onError: formatAIProviderError,
             onFinish: async ({ responseMessage }) => {
+              const hasContent =
+                Array.isArray(responseMessage.parts) &&
+                responseMessage.parts.some(
+                  (part) =>
+                    part.type === "text" ||
+                    part.type === "file" ||
+                    part.type.startsWith("tool-"),
+                );
+              if (!hasContent) return;
               try {
                 await supabase.from("chat_messages").insert({
                   user_id: userId,
@@ -249,11 +283,14 @@ function formatAIProviderError(error: unknown): string {
         ? error
         : "";
 
+  if (/no longer available|NOT_FOUND|is not found/i.test(message)) {
+    return "Modelo Gemini indisponível. No .env.local use GEMINI_MODEL=gemini-3.1-flash-lite e reinicie o servidor.";
+  }
   if (/limit:\s*0/i.test(message)) {
-    return "Seu projeto Gemini não tem cota gratuita ativa neste modelo. No .env.local use GEMINI_MODEL=gemini-2.5-flash-lite ou gere uma chave nova em aistudio.google.com/apikey (projeto com Free tier).";
+    return "Seu projeto Gemini não tem cota gratuita ativa neste modelo. No .env.local use GEMINI_MODEL=gemini-3.1-flash-lite ou gere uma chave nova em aistudio.google.com/apikey (projeto com Free tier).";
   }
   if (/insufficient_quota|exceeded your current quota|RESOURCE_EXHAUSTED|quota/i.test(message)) {
-    return "Cota do Gemini esgotada. Aguarde alguns minutos ou troque GEMINI_MODEL para gemini-2.5-flash-lite.";
+    return "Cota do Gemini esgotada. Aguarde alguns minutos ou troque GEMINI_MODEL para gemini-3.1-flash-lite.";
   }
   if (/API[_ ]?key|invalid.*key|403|PERMISSION_DENIED/i.test(message)) {
     return "GEMINI_API_KEY inválida. Confira a chave no .env.local e reinicie o servidor.";

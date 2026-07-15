@@ -101,9 +101,9 @@ function RelatoriosPage() {
               <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} stroke="var(--color-muted-foreground)" />
               <YAxis tick={{ fontSize: 11 }} stroke="var(--color-muted-foreground)" />
               <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }} />
-              <Bar dataKey="protein_g" name="Proteína" fill="var(--color-macro-protein)" />
-              <Bar dataKey="carb_g" name="Carbo" fill="var(--color-macro-carb)" />
-              <Bar dataKey="fat_g" name="Gordura" fill="var(--color-macro-fat)" />
+              <Bar dataKey="protein_g" name="Proteína" fill="var(--macro-protein)" />
+              <Bar dataKey="carb_g" name="Carbo" fill="var(--macro-carb)" />
+              <Bar dataKey="fat_g" name="Gordura" fill="var(--macro-fat)" />
             </BarChart>
           </ResponsiveContainer>
         </div>

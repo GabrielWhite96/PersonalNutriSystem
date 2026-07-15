@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 type Props = {
   value: number;
   goal?: number | null;
+  /** Used as visual scale when the user has no goal set. */
+  softGoal?: number;
   size?: number;
   strokeWidth?: number;
   label?: string;
@@ -11,18 +13,28 @@ type Props = {
   className?: string;
 };
 
+function toPositiveNumber(value: number | null | undefined): number | null {
+  if (value == null) return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function MacroRing({
   value,
   goal,
+  softGoal = 2000,
   size = 160,
   strokeWidth = 12,
   label = "kcal",
   unit,
   className,
 }: Props) {
+  const numericValue = Number(value) || 0;
+  const personalGoal = toPositiveNumber(goal);
+  const scale = personalGoal ?? softGoal;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const pct = goal && goal > 0 ? Math.min(1, value / goal) : 0;
+  const pct = scale > 0 ? Math.min(1, numericValue / scale) : 0;
   const offset = circumference * (1 - pct);
 
   return (
@@ -33,28 +45,28 @@ export function MacroRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--color-muted)"
+          stroke="var(--muted)"
           strokeWidth={strokeWidth}
         />
-        {goal ? (
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="var(--color-macro-kcal)"
-            strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            style={{ transition: "stroke-dashoffset 500ms ease-out" }}
-          />
-        ) : null}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--macro-kcal)"
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 500ms ease-out" }}
+        />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="font-serif text-3xl font-semibold tabular-nums">{fmtNum(value)}</div>
+        <div className="font-serif text-3xl font-semibold tabular-nums">{fmtNum(numericValue)}</div>
         <div className="text-xs text-muted-foreground">
-          {goal ? `de ${fmtNum(goal)} ${label}` : `${label}${unit ? " " + unit : ""}`}
+          {personalGoal
+            ? `de ${fmtNum(personalGoal)} ${label}`
+            : `${label}${unit ? ` ${unit}` : ""}`}
         </div>
       </div>
     </div>
@@ -65,19 +77,33 @@ type MacroBarProps = {
   name: string;
   value: number;
   goal?: number | null;
-  color: string; // css var like "var(--color-macro-protein)"
+  /** Used as visual scale when the user has no goal set. */
+  softGoal?: number;
+  color: string; // css var like "var(--macro-protein)"
   unit?: string;
 };
-export function MacroBar({ name, value, goal, color, unit = "g" }: MacroBarProps) {
-  const pct = goal && goal > 0 ? Math.min(100, (value / goal) * 100) : 0;
+
+export function MacroBar({
+  name,
+  value,
+  goal,
+  softGoal = 100,
+  color,
+  unit = "g",
+}: MacroBarProps) {
+  const numericValue = Number(value) || 0;
+  const personalGoal = toPositiveNumber(goal);
+  const scale = personalGoal ?? softGoal;
+  const pct = scale > 0 ? Math.min(100, (numericValue / scale) * 100) : 0;
+
   return (
     <div>
       <div className="flex items-baseline justify-between text-sm">
         <span className="text-muted-foreground">{name}</span>
         <span className="tabular-nums font-medium">
-          {fmtNum(value)}
+          {fmtNum(numericValue)}
           <span className="text-muted-foreground">
-            {goal ? ` / ${fmtNum(goal)}` : ""} {unit}
+            {personalGoal ? ` / ${fmtNum(personalGoal)}` : ""} {unit}
           </span>
         </span>
       </div>

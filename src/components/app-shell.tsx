@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getProfile } from "@/lib/profile.functions";
 import { Home, MessageCircle, BookOpen, BarChart3, User, Sprout, LogOut } from "lucide-react";
@@ -22,20 +22,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const qc = useQueryClient();
 
-  const { data: profile, isLoading } = useQuery({
+  const { data: profile } = useQuery({
     queryKey: ["profile"],
     queryFn: () => getProfileFn(),
   });
-
-  const needsOnboarding = !isLoading && !profile?.onboarded_at;
-
-  // Redirect to onboarding if not completed
-  useEffect(() => {
-    if (isLoading) return;
-    if (needsOnboarding && location.pathname !== "/onboarding") {
-      navigate({ to: "/onboarding", replace: true });
-    }
-  }, [needsOnboarding, isLoading, location.pathname, navigate]);
 
   async function handleSignOut() {
     await qc.cancelQueries();
@@ -44,13 +34,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth", replace: true });
   }
 
-  // Onboarding takes over the screen
+  // Onboarding takes over the screen (no sidebar/nav).
   if (location.pathname === "/onboarding") {
     return <div className="min-h-screen bg-background">{children}</div>;
-  }
-
-  if (needsOnboarding) {
-    return <div className="min-h-screen bg-background" />;
   }
 
   return (
