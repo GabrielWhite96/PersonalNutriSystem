@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getProfile } from "@/lib/profile.functions";
-import { Home, MessageCircle, BookOpen, BarChart3, User, Sprout, LogOut } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
+import { Home, MessageCircle, BookOpen, BarChart3, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -43,11 +44,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-background">
       {/* Desktop sidebar */}
       <aside className="hidden w-60 shrink-0 border-r border-border bg-sidebar md:flex md:flex-col">
-        <div className="flex items-center gap-2 px-6 pt-6 pb-8">
-          <Sprout className="h-6 w-6 text-primary" />
-          <span className="font-serif text-lg font-semibold">
-            {profile?.assistant_name || "Nutri"}
-          </span>
+        <div className="px-6 pt-6 pb-8">
+          <BrandMark
+            size={28}
+            label={profile?.assistant_name || "Nutri"}
+            className="[&>span]:text-lg"
+          />
         </div>
         <nav className="flex-1 space-y-1 px-3">
           {NAV.map((item) => {

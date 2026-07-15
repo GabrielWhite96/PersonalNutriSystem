@@ -1,7 +1,8 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Sparkles, MessageCircle, TrendingUp, Sprout } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
+import { Sparkles, MessageCircle, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   beforeLoad: async () => {
@@ -16,10 +17,7 @@ function Landing() {
   return (
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <div className="flex items-center gap-2">
-          <Sprout className="h-6 w-6 text-primary" />
-          <span className="font-serif text-xl font-semibold">Nutri</span>
-        </div>
+        <BrandMark size={28} />
         <Link to="/auth">
           <Button variant="ghost" size="sm">Entrar</Button>
         </Link>

@@ -16,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Sparkles, Sprout } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { BrandMark } from "@/components/brand-mark";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   component: OnboardingPage,
@@ -178,9 +179,8 @@ function OnboardingPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-10">
-      <div className="mb-8 flex items-center gap-2">
-        <Sprout className="h-6 w-6 text-primary" />
-        <span className="font-serif text-xl font-semibold">Nutri</span>
+      <div className="mb-8">
+        <BrandMark size={32} />
       </div>
 
       <p className="text-xs uppercase tracking-wide text-muted-foreground">Passo {step} de 2</p>

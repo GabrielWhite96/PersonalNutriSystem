@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Sprout } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
@@ -62,9 +62,8 @@ function AuthPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-8 shadow-sm">
-        <div className="mb-6 flex items-center justify-center gap-2">
-          <Sprout className="h-6 w-6 text-primary" />
-          <span className="font-serif text-xl font-semibold">Nutri</span>
+        <div className="mb-6 flex justify-center">
+          <BrandMark size={36} />
         </div>
         <h1 className="text-center font-serif text-2xl font-semibold">Entre para começar</h1>
         <p className="mt-2 text-center text-sm text-muted-foreground">
