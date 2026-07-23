@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getLocalDayBounds } from "@/lib/datetime";
+import { getLocalDateKey, getLocalDayBounds } from "@/lib/datetime";
 import { z } from "zod";
 
 const MealItem = z.object({
@@ -124,7 +124,7 @@ export const deleteMeal = createServerFn({ method: "POST" })
 export const getDailyTotals = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ date: z.string() }).parse(input),
+    z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { startIso, endIso } = getLocalDayBounds(data.date);
@@ -133,9 +133,15 @@ export const getDailyTotals = createServerFn({ method: "GET" })
       .select("kcal, protein_g, carb_g, fat_g, meal_type, title, eaten_at, id")
       .eq("user_id", context.userId)
       .gte("eaten_at", startIso)
-      .lte("eaten_at", endIso);
+      .lte("eaten_at", endIso)
+      .order("eaten_at", { ascending: true });
     if (error) throw new Error(error.message);
-    const totals = (rows ?? []).reduce(
+
+    // Extra guard: never mix meals from another Brazil calendar day
+    // (e.g. 21h–23h59 BRT stored as next-day UTC).
+    const meals = (rows ?? []).filter((row) => getLocalDateKey(row.eaten_at) === data.date);
+
+    const totals = meals.reduce(
       (acc, r) => ({
         kcal: acc.kcal + Number(r.kcal),
         protein_g: acc.protein_g + Number(r.protein_g),
@@ -144,7 +150,7 @@ export const getDailyTotals = createServerFn({ method: "GET" })
       }),
       { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 },
     );
-    return { totals, meals: rows ?? [] };
+    return { totals, meals };
   });
 
 export const findSimilarMeal = createServerFn({ method: "POST" })

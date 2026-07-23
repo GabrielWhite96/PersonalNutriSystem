@@ -116,7 +116,8 @@ export const Route = createFileRoute("/api/chat")({
         const gemini = createGeminiProvider(GEMINI_API_KEY);
         const model = gemini(GEMINI_MODEL);
 
-        const today = new Date().toISOString();
+        const { formatNowInAppTimezone } = await import("@/lib/datetime");
+        const nowInBrazil = formatNowInAppTimezone("yyyy-MM-dd HH:mm (OOOO)");
 
         const systemPrompt = `Você é ${assistantName}, uma assistente pessoal brasileira de registro alimentar do usuário${profile?.name ? " " + profile.name : ""}.
 
@@ -132,7 +133,7 @@ Regras:
 - Se o usuário disser "meu café de sempre", "igual ontem" ou similar, use "buscarRefeicaoSimilar" primeiro. Se ainda faltar contexto, consulte "buscarPreferenciasUsuario".
 - Se o usuário enviar uma imagem, responda exatamente: "${PHOTO_FEATURE_MESSAGE}" e não gere estimativa.
 - Se pedirem dicas ou análise, aí sim você pode responder normalmente.
-- Data e hora agora: ${today}.
+- Data e hora agora (horário de Brasília): ${nowInBrazil}. Use sempre o calendário de Brasília; depois das 21h ainda é o mesmo dia local até meia-noite.
 - Metas do usuário: ${profile?.kcal_goal ? `${profile.kcal_goal} kcal, ${profile.protein_g_goal ?? "?"}g proteína, ${profile.carb_g_goal ?? "?"}g carbo, ${profile.fat_g_goal ?? "?"}g gordura` : "sem metas definidas"}.
 
 Sempre use valores nutricionais médios conhecidos (por ex.: 1 pão francês ≈ 140 kcal; 100g arroz cozido ≈ 130 kcal; 100g frango grelhado ≈ 165 kcal; 200ml leite integral ≈ 120 kcal).

@@ -1,11 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { getTodayDateKey } from "@/lib/datetime";
+import { formatDateValue, getLocalDateKey, getTodayDateKey } from "@/lib/datetime";
 import { getProfile } from "@/lib/profile.functions";
-import { getDailyTotals } from "@/lib/meals.functions";
+import { listMeals } from "@/lib/meals.functions";
 import { MacroRing, MacroBar } from "@/components/macro-ring";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Plus } from "lucide-react";
@@ -17,17 +16,31 @@ export const Route = createFileRoute("/_authenticated/home")({
 
 function HomePage() {
   const getProfileFn = useServerFn(getProfile);
-  const getDailyFn = useServerFn(getDailyTotals);
+  const listMealsFn = useServerFn(listMeals);
   const today = getTodayDateKey();
 
   const { data: profile } = useQuery({ queryKey: ["profile"], queryFn: () => getProfileFn() });
-  const { data: daily } = useQuery({
-    queryKey: ["daily-totals", today],
-    queryFn: () => getDailyFn({ data: { date: today } }),
+  const { data: allMeals } = useQuery({
+    queryKey: ["meals", "home", today],
+    queryFn: () => listMealsFn({ data: { limit: 100 } }),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
-  const totals = daily?.totals ?? { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 };
-  const meals = daily?.meals ?? [];
+  // Same calendar-day rule as Histórico (Brazil), so late dinners stay on yesterday.
+  const meals = (allMeals ?? [])
+    .filter((meal) => getLocalDateKey(meal.eaten_at) === today)
+    .sort((a, b) => String(a.eaten_at).localeCompare(String(b.eaten_at)));
+
+  const totals = meals.reduce(
+    (acc, r) => ({
+      kcal: acc.kcal + Number(r.kcal),
+      protein_g: acc.protein_g + Number(r.protein_g),
+      carb_g: acc.carb_g + Number(r.carb_g),
+      fat_g: acc.fat_g + Number(r.fat_g),
+    }),
+    { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 },
+  );
   const hasGoals = profile?.kcal_goal || profile?.protein_g_goal;
   const firstName = profile?.name?.split(" ")[0] ?? "";
 
@@ -36,7 +49,7 @@ function HomePage() {
       <header className="flex items-baseline justify-between">
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
+            {formatDateValue(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
           </p>
           <h1 className="mt-1 font-serif text-3xl font-semibold">
             Oi{firstName ? `, ${firstName}` : ""}
@@ -44,7 +57,6 @@ function HomePage() {
         </div>
       </header>
 
-      {/* Today card */}
       <section className="mt-6 rounded-3xl border border-border bg-card p-6">
         <div className="flex flex-col items-center gap-6 md:flex-row md:items-start">
           <MacroRing
@@ -94,7 +106,6 @@ function HomePage() {
         </div>
       </section>
 
-      {/* Recent meals */}
       <section className="mt-8">
         <div className="flex items-baseline justify-between">
           <h2 className="font-serif text-xl font-semibold">Hoje</h2>
@@ -126,7 +137,7 @@ function HomePage() {
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">
                     {MEAL_LABEL[m.meal_type] ?? m.meal_type} ·{" "}
-                    {format(new Date(m.eaten_at), "HH:mm")}
+                    {formatDateValue(m.eaten_at, "HH:mm")}
                   </p>
                   <p className="mt-1 font-medium">{m.title}</p>
                 </div>
