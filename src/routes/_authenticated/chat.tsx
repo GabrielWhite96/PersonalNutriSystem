@@ -21,6 +21,7 @@ import {
 import {
   PromptInput,
   PromptInputActionAddAttachments,
+  PromptInputActionTakePhoto,
   PromptInputActionMenu,
   PromptInputActionMenuContent,
   PromptInputActionMenuTrigger,
@@ -192,6 +193,9 @@ function ChatPage() {
                     {s}
                   </button>
                 ))}
+                <p className="pt-2 text-center text-xs text-muted-foreground">
+                  Ou use o botão + para tirar/enviar uma foto do prato.
+                </p>
               </div>
             </div>
           ) : null}
@@ -208,6 +212,18 @@ function ChatPage() {
                     return <p key={key} className="whitespace-pre-wrap">{part.text}</p>;
                   }
                   if (part.type === "file") {
+                    const isImage = part.mediaType?.startsWith("image/");
+                    if (isImage && part.url) {
+                      return (
+                        <div key={key} className="overflow-hidden rounded-2xl border border-border">
+                          <img
+                            src={part.url}
+                            alt={part.filename || "Foto da refeição"}
+                            className="max-h-64 w-full object-cover"
+                          />
+                        </div>
+                      );
+                    }
                     return (
                       <div
                         key={key}
@@ -281,10 +297,11 @@ function ChatPage() {
             <PromptInputActionMenu>
               <PromptInputActionMenuTrigger
                 disabled={!authHeader || isLoading}
-                tooltip="Enviar imagem"
+                tooltip="Enviar ou tirar foto"
               />
               <PromptInputActionMenuContent>
-                <PromptInputActionAddAttachments label="Escolher imagem" />
+                <PromptInputActionTakePhoto label="Tirar foto" />
+                <PromptInputActionAddAttachments label="Escolher da galeria" />
               </PromptInputActionMenuContent>
             </PromptInputActionMenu>
           </PromptInputTools>
@@ -329,14 +346,22 @@ function PendingAttachments() {
       {attachments.files.map((file) => (
         <div
           key={file.id}
-          className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground"
+          className="relative overflow-hidden rounded-xl border border-border bg-card"
         >
-          <ImageIcon className="h-3.5 w-3.5" />
-          <span>{file.filename || "Imagem pronta para envio"}</span>
+          {file.url ? (
+            <img
+              src={file.url}
+              alt={file.filename || "Prévia da foto"}
+              className="h-20 w-20 object-cover"
+            />
+          ) : (
+            <div className="flex h-20 w-20 items-center justify-center text-xs text-muted-foreground">
+              <ImageIcon className="h-4 w-4" />
+            </div>
+          )}
           <PromptInputButton
-            className="h-auto min-h-0 rounded-full p-0 text-muted-foreground hover:text-foreground"
+            className="absolute right-1 top-1 h-6 w-6 rounded-full bg-background/90 p-0 text-muted-foreground hover:text-foreground"
             onClick={() => attachments.remove(file.id)}
-            size="icon-sm"
             tooltip="Remover imagem"
           >
             <X className="h-3.5 w-3.5" />

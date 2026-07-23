@@ -26,6 +26,7 @@ export function getCurrentMealConversationText(messages: UIMessage[]): string | 
     if (message.role !== "user") continue;
     const text = extractTextFromMessage(message);
     if (text) collected.push(text);
+    else if (messageHasFile(message)) collected.push("[Foto da refeição]");
   }
 
   const combined = collected.reverse().join("\n").trim();

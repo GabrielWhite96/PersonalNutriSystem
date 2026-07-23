@@ -64,6 +64,7 @@ Ele documenta a estrutura atual esperada pelo app:
 
 ## Observacoes de produto
 
-- O registro por foto ainda nao salva nem processa imagens: o chat responde que a funcionalidade esta em desenvolvimento.
+- O chat aceita foto da galeria ou da camera; a Gemini analisa a imagem e gera a estimativa para confirmacao.
+- As imagens nao sao persistidas no historico (apenas um marcador textual).
 - As refeicoes so sao persistidas apos confirmacao do usuario.
 - A memoria contextual usa historico salvo e preferencias confirmadas por usuario.

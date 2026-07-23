@@ -80,4 +80,23 @@ describe("chat message utils", () => {
       "Hoje no cafe comi pao com manteiga\n2 paes",
     );
   });
+
+  it("uses a photo marker when the latest meal turn is image-only", () => {
+    const messages = [
+      {
+        id: "photo-user",
+        role: "user",
+        parts: [
+          {
+            type: "file",
+            filename: "prato.jpg",
+            mediaType: "image/jpeg",
+            url: "data:image/jpeg;base64,abc",
+          },
+        ],
+      },
+    ] satisfies UIMessage[];
+
+    expect(getCurrentMealConversationText(messages)).toBe("[Foto da refeição]");
+  });
 });

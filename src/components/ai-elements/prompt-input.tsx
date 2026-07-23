@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
 import {
   CornerDownLeftIcon,
+  CameraIcon,
   ImageIcon,
   Monitor,
   PlusIcon,
@@ -50,6 +51,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { nanoid } from "nanoid";
+import { compressImageFile, captureCameraPhoto } from "@/lib/image-utils";
 import type {
   ChangeEvent,
   ChangeEventHandler,
@@ -267,16 +269,23 @@ export const PromptInputProvider = ({
       return;
     }
 
-    setAttachmentFiles((prev) => [
-      ...prev,
-      ...incoming.map((file) => ({
-        filename: file.name,
-        id: nanoid(),
-        mediaType: file.type,
-        type: "file" as const,
-        url: URL.createObjectURL(file),
-      })),
-    ]);
+    void (async () => {
+      const compressed = await Promise.all(
+        incoming.map((file) =>
+          file.type.startsWith("image/") ? compressImageFile(file) : Promise.resolve(file),
+        ),
+      );
+      setAttachmentFiles((prev) => [
+        ...prev,
+        ...compressed.map((file) => ({
+          filename: file.name,
+          id: nanoid(),
+          mediaType: file.type,
+          type: "file" as const,
+          url: URL.createObjectURL(file),
+        })),
+      ]);
+    })();
   }, []);
 
   const remove = useCallback((id: string) => {
@@ -432,6 +441,80 @@ export const PromptInputActionAddAttachments = ({
     <DropdownMenuItem {...props} onSelect={handleSelect}>
       <ImageIcon className="mr-2 size-4" /> {label}
     </DropdownMenuItem>
+  );
+};
+
+export type PromptInputActionTakePhotoProps = ComponentProps<
+  typeof DropdownMenuItem
+> & {
+  label?: string;
+};
+
+export const PromptInputActionTakePhoto = ({
+  label = "Tirar foto",
+  onSelect,
+  ...props
+}: PromptInputActionTakePhotoProps) => {
+  const attachments = usePromptInputAttachments();
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleSelect = useCallback(
+    async (event: Event) => {
+      onSelect?.(event);
+      if (event.defaultPrevented) {
+        return;
+      }
+
+      // Prefer native camera capture on mobile.
+      if (cameraInputRef.current) {
+        cameraInputRef.current.click();
+        return;
+      }
+
+      try {
+        const photo = await captureCameraPhoto();
+        if (photo) {
+          attachments.add([photo]);
+        }
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          (error.name === "NotAllowedError" || error.name === "AbortError")
+        ) {
+          return;
+        }
+        throw error;
+      }
+    },
+    [onSelect, attachments]
+  );
+
+  const handleCameraChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const files = event.currentTarget.files;
+      if (files && files.length > 0) {
+        attachments.add(files);
+      }
+      event.currentTarget.value = "";
+    },
+    [attachments]
+  );
+
+  return (
+    <>
+      <input
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleCameraChange}
+        ref={cameraInputRef}
+        type="file"
+      />
+      <DropdownMenuItem {...props} onSelect={handleSelect}>
+        <CameraIcon className="mr-2 size-4" />
+        {label}
+      </DropdownMenuItem>
+    </>
   );
 };
 
@@ -597,31 +680,36 @@ export const PromptInput = ({
         return;
       }
 
-      setItems((prev) => {
-        const capacity =
-          typeof maxFiles === "number"
-            ? Math.max(0, maxFiles - prev.length)
-            : undefined;
-        const capped =
-          typeof capacity === "number" ? sized.slice(0, capacity) : sized;
-        if (typeof capacity === "number" && sized.length > capacity) {
-          onError?.({
-            code: "max_files",
-            message: "Too many files. Some were not added.",
-          });
-        }
-        const next: (FileUIPart & { id: string })[] = [];
-        for (const file of capped) {
-          next.push({
+      void (async () => {
+        const compressed = await Promise.all(
+          sized.map((file) =>
+            file.type.startsWith("image/") ? compressImageFile(file) : Promise.resolve(file),
+          ),
+        );
+
+        setItems((prev) => {
+          const capacity =
+            typeof maxFiles === "number"
+              ? Math.max(0, maxFiles - prev.length)
+              : undefined;
+          const capped =
+            typeof capacity === "number" ? compressed.slice(0, capacity) : compressed;
+          if (typeof capacity === "number" && compressed.length > capacity) {
+            onError?.({
+              code: "max_files",
+              message: "Too many files. Some were not added.",
+            });
+          }
+          const next: (FileUIPart & { id: string })[] = capped.map((file) => ({
             filename: file.name,
             id: nanoid(),
             mediaType: file.type,
             type: "file",
             url: URL.createObjectURL(file),
-          });
-        }
-        return [...prev, ...next];
-      });
+          }));
+          return [...prev, ...next];
+        });
+      })();
     },
     [matchesAccept, maxFiles, maxFileSize, onError]
   );

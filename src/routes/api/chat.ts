@@ -2,23 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   extractTextFromMessage,
   getCurrentMealConversationText,
-  messageHasFile,
   sanitizeMessageForStorage,
 } from "@/lib/chat-message-utils";
 import { createGeminiProvider } from "@/lib/gemini.server";
 import {
   convertToModelMessages,
-  createUIMessageStream,
-  createUIMessageStreamResponse,
   streamText,
   tool,
   stepCountIs,
   type UIMessage,
 } from "ai";
 import { z } from "zod";
-
-const PHOTO_FEATURE_MESSAGE =
-  "Essa funcionalidade ainda esta em desenvolvimento e sera disponibilizada em uma versao futura.";
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -61,7 +55,6 @@ export const Route = createFileRoute("/api/chat")({
           return new Response("Server misconfigured", { status: 500 });
         }
 
-        // Verify token + get user id
         const { createClient } = await import("@supabase/supabase-js");
         const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
           global: {
@@ -73,7 +66,6 @@ export const Route = createFileRoute("/api/chat")({
         if (userErr || !userData.user) return new Response("Unauthorized", { status: 401 });
         const userId = userData.user.id;
 
-        // Load profile for assistant personalization
         const { data: profile } = await supabase
           .from("profiles")
           .select("assistant_name, name, kcal_goal, protein_g_goal, carb_g_goal, fat_g_goal, goal")
@@ -88,7 +80,12 @@ export const Route = createFileRoute("/api/chat")({
         const messages = (body.messages as UIMessage[]).filter(
           (message) =>
             Array.isArray(message.parts) &&
-            message.parts.some((part) => part.type === "text" || part.type === "file" || part.type.startsWith("tool-")),
+            message.parts.some(
+              (part) =>
+                part.type === "text" ||
+                part.type === "file" ||
+                part.type.startsWith("tool-"),
+            ),
         );
         const latestUser = [...messages].reverse().find((m) => m.role === "user");
         const originalMessage =
@@ -103,16 +100,6 @@ export const Route = createFileRoute("/api/chat")({
           });
         }
 
-        if (latestUser && messageHasFile(latestUser)) {
-          return createStaticAssistantResponse(messages, PHOTO_FEATURE_MESSAGE, async (responseMessage) => {
-            await supabase.from("chat_messages").insert({
-              user_id: userId,
-              role: "assistant",
-              content: responseMessage as unknown as Record<string, unknown>,
-            });
-          });
-        }
-
         const gemini = createGeminiProvider(GEMINI_API_KEY);
         const model = gemini(GEMINI_MODEL);
 
@@ -121,29 +108,30 @@ export const Route = createFileRoute("/api/chat")({
 
         const systemPrompt = `Você é ${assistantName}, uma assistente pessoal brasileira de registro alimentar do usuário${profile?.name ? " " + profile.name : ""}.
 
-Sua função é interpretar refeições descritas em linguagem natural, estimar valores nutricionais médios e ajudar a salvar no diário.
+Sua função é interpretar refeições descritas em linguagem natural ou por foto, estimar valores nutricionais médios e ajudar a salvar no diário.
 
 Regras:
 - Fale sempre em português do Brasil, de forma leve e objetiva.
 - Nunca dê dicas nutricionais sem que o usuário peça explicitamente.
-- Quando o usuário descrever uma refeição, use a ferramenta "estimarRefeicao" para gerar um resumo com valores estimados. O card gerado tem um botão "Salvar" — NÃO salve automaticamente, apenas gere a estimativa e peça a confirmação em uma frase curta ("Posso salvar?").
+- Quando o usuário descrever uma refeição OU enviar uma foto de comida, use a ferramenta "estimarRefeicao" para gerar um resumo com valores estimados. O card gerado tem um botão "Salvar" — NÃO salve automaticamente, apenas gere a estimativa e peça a confirmação em uma frase curta ("Posso salvar?").
+- Se receber uma imagem: identifique os alimentos visíveis, estime porções médias com base no que aparece no prato/embalagem, e chame "estimarRefeicao". Se a foto estiver ilegível ou não for comida, diga isso em uma frase e peça outra foto ou uma descrição.
+- Deixe claro quando a estimativa veio de uma foto (ex.: "Pela foto, considerei...").
 - Se faltar informação importante, faça no máximo 1 ou 2 perguntas curtas. Se o usuário disser que não sabe, estime valores médios e diga isso ("vou considerar uma quantidade média").
 - Se o usuário não informar quantidade, você pode consultar "buscarPreferenciasUsuario" para usar porções que ele costuma registrar. Quando fizer isso, deixe claro que foi uma suposição baseada no histórico dele.
-- Identifique o tipo de refeição pelo texto ("almoço", "café da manhã"). Se não estiver claro, pergunte uma vez qual refeição é. Valores possíveis: cafe_manha, almoco, lanche, jantar, outro.
+- Identifique o tipo de refeição pelo texto ("almoço", "café da manhã") ou pelo contexto/horário. Se não estiver claro, pergunte uma vez qual refeição é. Valores possíveis: cafe_manha, almoco, lanche, jantar, outro.
 - Se o usuário disser "meu café de sempre", "igual ontem" ou similar, use "buscarRefeicaoSimilar" primeiro. Se ainda faltar contexto, consulte "buscarPreferenciasUsuario".
-- Se o usuário enviar uma imagem, responda exatamente: "${PHOTO_FEATURE_MESSAGE}" e não gere estimativa.
 - Se pedirem dicas ou análise, aí sim você pode responder normalmente.
 - Data e hora agora (horário de Brasília): ${nowInBrazil}. Use sempre o calendário de Brasília; depois das 21h ainda é o mesmo dia local até meia-noite.
 - Metas do usuário: ${profile?.kcal_goal ? `${profile.kcal_goal} kcal, ${profile.protein_g_goal ?? "?"}g proteína, ${profile.carb_g_goal ?? "?"}g carbo, ${profile.fat_g_goal ?? "?"}g gordura` : "sem metas definidas"}.
 
 Sempre use valores nutricionais médios conhecidos (por ex.: 1 pão francês ≈ 140 kcal; 100g arroz cozido ≈ 130 kcal; 100g frango grelhado ≈ 165 kcal; 200ml leite integral ≈ 120 kcal).
 
-Nunca invente ingredientes que o usuário não mencionou. Se ele disse "arroz e frango", não adicione feijão.`;
+Nunca invente ingredientes que o usuário não mencionou ou que não apareçam na foto. Se ele disse "arroz e frango", não adicione feijão.`;
 
         const tools = {
           estimarRefeicao: tool({
             description:
-              "Gera um card de resumo da refeição com valores nutricionais estimados. Use após interpretar o que o usuário comeu. Isso NÃO salva a refeição — o usuário confirma pelo botão do card.",
+              "Gera um card de resumo da refeição com valores nutricionais estimados. Use após interpretar o que o usuário comeu (texto ou foto). Isso NÃO salva a refeição — o usuário confirma pelo botão do card.",
             inputSchema: z.object({
               meal_type: z
                 .enum(["cafe_manha", "almoco", "lanche", "jantar", "outro"])
@@ -260,7 +248,9 @@ Nunca invente ingredientes que o usuário não mencionou. Se ele disse "arroz e 
                 await supabase.from("chat_messages").insert({
                   user_id: userId,
                   role: "assistant",
-                  content: sanitizeMessageForStorage(responseMessage) as unknown as Record<string, unknown>,
+                  content: sanitizeMessageForStorage(
+                    responseMessage,
+                  ) as unknown as Record<string, unknown>,
                 });
               } catch (e) {
                 console.error("Failed to persist assistant message", e);
@@ -290,7 +280,11 @@ function formatAIProviderError(error: unknown): string {
   if (/limit:\s*0/i.test(message)) {
     return "Seu projeto Gemini não tem cota gratuita ativa neste modelo. No .env.local use GEMINI_MODEL=gemini-3.1-flash-lite ou gere uma chave nova em aistudio.google.com/apikey (projeto com Free tier).";
   }
-  if (/insufficient_quota|exceeded your current quota|RESOURCE_EXHAUSTED|quota/i.test(message)) {
+  if (
+    /insufficient_quota|exceeded your current quota|RESOURCE_EXHAUSTED|quota/i.test(
+      message,
+    )
+  ) {
     return "Cota do Gemini esgotada. Aguarde alguns minutos ou troque GEMINI_MODEL para gemini-3.1-flash-lite.";
   }
   if (/API[_ ]?key|invalid.*key|403|PERMISSION_DENIED/i.test(message)) {
@@ -301,27 +295,4 @@ function formatAIProviderError(error: unknown): string {
   }
 
   return message || "Falha ao falar com o Gemini.";
-}
-
-function createStaticAssistantResponse(
-  originalMessages: UIMessage[],
-  text: string,
-  onEnd: (responseMessage: UIMessage) => Promise<void>,
-) {
-  const stream = createUIMessageStream({
-    originalMessages,
-    execute: ({ writer }) => {
-      const textId = "assistant-static-message";
-      writer.write({ type: "start" });
-      writer.write({ type: "text-start", id: textId });
-      writer.write({ type: "text-delta", id: textId, delta: text });
-      writer.write({ type: "text-end", id: textId });
-      writer.write({ type: "finish", finishReason: "stop" });
-    },
-    onEnd: async ({ responseMessage }) => {
-      await onEnd(responseMessage);
-    },
-  });
-
-  return createUIMessageStreamResponse({ stream });
 }
